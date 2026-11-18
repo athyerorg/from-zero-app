@@ -25,7 +25,10 @@ export default function App() {
   useEffect(() => {
     if (!configured) { setReady(true); return }
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true) })
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s))
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s)
+      if (event === 'SIGNED_IN' && location.hash.includes('access_token')) history.replaceState(null, '', location.pathname + '#login')
+    })
     return () => sub.subscription.unsubscribe()
   }, [])
 
@@ -160,7 +163,7 @@ function Login({ session, profile, refresh }) {
     e.preventDefault(); setBusy(true); setErr('')
     // Sends a one-time sign-in link to the email. (Stage 7 of the guide swaps this for a 6-digit
     // code once you connect your own email sender; Supabase's default sender only does links.)
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + '/#login' } })
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + '/' } })
     setBusy(false)
     if (error) return setErr(explain(error))
     setStep('sent')
