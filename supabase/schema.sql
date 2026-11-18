@@ -82,6 +82,13 @@ revoke all on function public.demo_cancel() from public;
 grant execute on function public.demo_activate() to authenticated;
 grant execute on function public.demo_cancel() to authenticated;
 
+-- 4b) Grants. New projects do not expose tables to the app automatically (that checkbox at
+--     project creation). Row Level Security above decides WHICH rows; these decide WHICH tables.
+grant usage on schema public to anon, authenticated;
+grant select, insert, update on public.profiles to authenticated;
+grant select on public.memberships to authenticated;
+grant select on public.content to anon, authenticated;
+
 -- 5) Sample content (fictional). Delete and add your own.
 insert into public.content (position, title, summary, body, is_free)
 select * from (values
