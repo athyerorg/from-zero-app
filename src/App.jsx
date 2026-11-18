@@ -27,7 +27,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true) })
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
-      if (event === 'SIGNED_IN' && location.hash.includes('access_token')) history.replaceState(null, '', location.pathname + '#login')
+      if (event === 'SIGNED_IN' && location.hash.includes('access_token')) { history.replaceState(null, '', location.pathname + '#login'); dispatchEvent(new HashChangeEvent('hashchange')) }
     })
     return () => sub.subscription.unsubscribe()
   }, [])
