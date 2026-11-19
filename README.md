@@ -20,3 +20,8 @@ Live demo: see the guide. This repo is meant to be read and forked by beginners.
 ## Honest notes
 - Payment is in **demo mode** (`demo_activate()`): no money moves. Stage 9 of the guide replaces it with a real gateway and a webhook.
 - Sign-in uses Supabase's default email, which sends a **link**. Connecting your own sender (stage 7) lets you switch to a 6-digit code.
+
+## Payment (stage 9)
+- Browser: Moyasar form with `VITE_MOYASAR_PK` (publishable key, public).
+- Server: Edge Function `confirm-payment` with secret `MOYASAR_SECRET_KEY`; it re-reads the payment from Moyasar and writes `memberships`. Deployed with 'Verify JWT' OFF so Moyasar's webhook can call it; it checks the caller itself.
+- Test card (Moyasar test mode): 4111 1111 1111 1111, any future date, any CVC.
