@@ -98,3 +98,9 @@ select * from (values
   (4, 'التطبيق', 'نجمع كل شي في مثال', 'محتوى مدفوع رقم ثلاثة.' || chr(10) || 'والمكتبة تكبر من لوحة Supabase بدون كود: صف جديد في جدول content.', false)
 ) as v(position, title, summary, body, is_free)
 where not exists (select 1 from public.content);
+
+-- 6) The payment function (Edge Function `confirm-payment`) writes memberships with the service role.
+--    This project has "automatically expose new tables" OFF, so the grant must be explicit.
+grant usage on schema public to service_role;
+grant select, insert, update on public.memberships to service_role;
+grant select on public.profiles to service_role;
