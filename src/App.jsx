@@ -16,7 +16,7 @@ function useHash() {
 const go = (to) => { location.hash = to }
 
 export default function App() {
-  const route = useHash()
+  const route = useHash() || (location.search.includes('paid=1') ? 'pay' : '')
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [member, setMember] = useState(false)
@@ -216,30 +216,65 @@ function Login({ session, profile, refresh }) {
 }
 
 function Pay({ session, member, refresh }) {
-  const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [done, setDone] = useState(false)
+  const [state, setState] = useState('form') // form | checking | done | failed
+  const [msg, setMsg] = useState('')
+  const pk = import.meta.env.VITE_MOYASAR_PK
+  const returning = new URLSearchParams(location.search)
+
   useEffect(() => { if (!session) go('login') }, [session])
+
+  // Coming back from Moyasar: the URL carries ?id=<payment>&status=…  We do NOT trust that status;
+  // we ask our Edge Function, which asks Moyasar with the secret key and unlocks if it really is paid.
+  useEffect(() => {
+    const id = returning.get('id')
+    if (!session || !id) return
+    setState('checking')
+    history.replaceState(null, '', location.pathname + '#pay')
+    supabase.functions.invoke('confirm-payment', { body: { id } }).then(async ({ data, error }) => {
+      if (error || data?.error) { setState('failed'); setMsg(explain(error || { message: data?.error })); return }
+      if (data?.ok) { await refresh(); setState('done') }
+      else { setState('failed'); setMsg(data?.message || 'ما تمت عملية الدفع.') }
+    })
+  }, [session])
+
+  // Draw Moyasar's card form inside our page (the card number never touches our code or our database).
+  useEffect(() => {
+    if (!session || state !== 'form' || !pk || !window.Moyasar) return
+    const el = document.querySelector('.mysr-form'); if (!el) return
+    el.innerHTML = ''
+    window.Moyasar.init({
+      element: '.mysr-form',
+      amount: PLAN.price * 100,           // halalas
+      currency: 'SAR',
+      description: 'اشتراك نادي — شهر',
+      publishable_api_key: pk,
+      callback_url: location.origin + '/?paid=1',
+      methods: ['creditcard'],
+      metadata: { user_id: session.user.id },
+      on_failure: (e) => setErr(e?.message || 'ما قدرنا نكمل الدفع.'),
+    })
+  }, [session, state, pk])
+
   if (!session) return null
-  if (member && !done) return <section className="okbox" style={{ marginTop: 24 }}>اشتراكك فعّال. <a href="#library" style={{ textDecoration: 'underline' }}>روح للمكتبة</a>.</section>
+  if (member && state === 'form') return <section className="okbox" style={{ marginTop: 24 }}>اشتراكك فعّال. <a href="#library" style={{ textDecoration: 'underline' }}>روح للمكتبة</a>.</section>
 
-  async function pay() {
-    setBusy(true); setErr('')
-    // DEMO MODE: activates the membership directly. The real version (next step of the guide)
-    // sends the user to the payment gateway and activates ONLY after the gateway's webhook confirms.
-    const { error } = await supabase.rpc('demo_activate')
-    setBusy(false)
-    if (error) return setErr(explain(error))
-    setDone(true); await refresh()
-  }
-
-  if (done) return (
+  if (state === 'checking') return <section className="panel" style={{ maxWidth: 420, margin: '24px auto', textAlign: 'center' }}><p>لحظة، نتأكد من الدفع…</p></section>
+  if (state === 'done') return (
     <section style={{ maxWidth: 420, margin: '24px auto' }}>
       <div className="panel" style={{ textAlign: 'center' }}>
         <div className="status on" style={{ marginBottom: 10 }}><i />تم الاشتراك</div>
         <h2 style={{ margin: '6px 0' }}>كل المكتبة مفتوحة لك</h2>
-        <p style={{ color: 'var(--mute)' }}>وصلك إيصال على إيميلك.</p>
         <a className="btn p w" href="#library">افتح المكتبة</a>
+      </div>
+    </section>
+  )
+  if (state === 'failed') return (
+    <section style={{ maxWidth: 420, margin: '24px auto' }}>
+      <div className="panel">
+        <h2>ما تم الدفع</h2>
+        <p style={{ color: 'var(--mute)' }}>{msg}</p>
+        <button className="btn p w" onClick={() => { setState('form'); setMsg('') }}>جرّب مرة ثانية</button>
       </div>
     </section>
   )
@@ -255,8 +290,8 @@ function Pay({ session, member, refresh }) {
           <li>تسترجع خلال 7 أيام إذا ما فتحت أي محتوى مدفوع</li>
         </ul>
         {err && <div className="err" style={{ marginBottom: 10 }}>{err}</div>}
-        <button className="btn p w" disabled={busy} onClick={pay}>{busy ? 'لحظة…' : <>ادفع <SAR n={PLAN.price} /></>}</button>
-        <p style={{ fontSize: 13, color: 'var(--dim)', textAlign: 'center', margin: '10px 0 0' }}>وضع تجريبي: ما ينخصم شي. بوابة الدفع الحقيقية في المرحلة 9 من الدليل.</p>
+        {pk ? <div className="mysr-form" /> : <div className="err">بوابة الدفع غير مضبوطة: المتغيّر VITE_MOYASAR_PK ناقص.</div>}
+        <p style={{ fontSize: 13, color: 'var(--dim)', textAlign: 'center', margin: '10px 0 0' }}>الدفع عبر ميسر. بطاقتك لا تمر على خوادمنا.</p>
       </div>
     </section>
   )
