@@ -159,14 +159,23 @@ function Login({ session, profile, refresh }) {
     else if (session) setStep('name')
   }, [session, profile])
 
-  async function sendLink(e) {
+  const [code, setCode] = useState('')
+  async function sendCode(e) {
     e.preventDefault(); setBusy(true); setErr('')
-    // Sends a one-time sign-in link to the email. (Stage 7 of the guide swaps this for a 6-digit
-    // code once you connect your own email sender; Supabase's default sender only does links.)
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + '/' } })
+    // Emails a 6-digit code (the template in Supabase → Auth → Emails prints {{ .Token }};
+    // the email itself goes out through your own sender, Resend, set in Auth → SMTP).
+    const { error } = await supabase.auth.signInWithOtp({ email })
     setBusy(false)
     if (error) return setErr(explain(error))
-    setStep('sent')
+    setStep('code')
+  }
+  async function checkCode(e) {
+    e.preventDefault(); setBusy(true); setErr('')
+    // The code is checked by Supabase; a wrong or old code comes back as an error, nothing else happens.
+    const { error } = await supabase.auth.verifyOtp({ email, token: code.trim(), type: 'email' })
+    setBusy(false)
+    if (error) return setErr(explain(error))
+    await refresh()
   }
   async function saveName(e) {
     e.preventDefault(); setBusy(true); setErr('')
@@ -179,18 +188,21 @@ function Login({ session, profile, refresh }) {
   return (
     <section style={{ maxWidth: 420, margin: '24px auto' }}>
       <div className="panel">
-        {step === 'email' && <form className="form" onSubmit={sendLink}>
+        {step === 'email' && <form className="form" onSubmit={sendCode}>
           <h2>دخول</h2>
-          <p style={{ color: 'var(--mute)', margin: 0 }}>اكتب إيميلك ويوصلك رابط دخول. بدون كلمة مرور.</p>
+          <p style={{ color: 'var(--mute)', margin: 0 }}>اكتب إيميلك ويوصلك رمز من 6 أرقام. بدون كلمة مرور.</p>
           <label>الإيميل<input type="email" required autoFocus dir="ltr" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" /></label>
           {err && <div className="err">{err}</div>}
-          <button className="btn p w" disabled={busy}>{busy ? 'جارٍ الإرسال…' : 'أرسل رابط الدخول'}</button>
+          <button className="btn p w" disabled={busy}>{busy ? 'جارٍ الإرسال…' : 'أرسل الرمز'}</button>
         </form>}
-        {step === 'sent' && <div className="form">
-          <h2>افتح إيميلك</h2>
-          <p style={{ color: 'var(--mute)', margin: 0 }}>أرسلنا رابطًا إلى <span className="num" style={{ fontWeight: 500 }}>{email}</span>. اضغطه من نفس الجهاز ويرجّعك هنا مسجّلًا. ما وصل خلال دقيقة؟ شوف المزعج.</p>
-          <button type="button" className="btn w" onClick={() => setStep('email')}>غيّر الإيميل</button>
-        </div>}
+        {step === 'code' && <form className="form" onSubmit={checkCode}>
+          <h2>اكتب الرمز</h2>
+          <p style={{ color: 'var(--mute)', margin: 0 }}>أرسلنا رمزًا إلى <span className="num" style={{ fontWeight: 500 }}>{email}</span>. ما وصل خلال دقيقة؟ شوف المزعج.</p>
+          <input required autoFocus inputMode="numeric" pattern="[0-9]*" maxLength={6} dir="ltr" className="num" style={{ fontSize: 28, letterSpacing: 8, textAlign: 'center' }} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} placeholder="••••••" />
+          {err && <div className="err">{err}</div>}
+          <button className="btn p w" disabled={busy || code.length < 6}>{busy ? 'جارٍ التحقق…' : 'دخول'}</button>
+          <button type="button" className="btn w" onClick={() => { setStep('email'); setCode('') }}>غيّر الإيميل</button>
+        </form>}
         {step === 'name' && <form className="form" onSubmit={saveName}>
           <h2>وش اسمك؟</h2>
           <p style={{ color: 'var(--mute)', margin: 0 }}>مرة وحدة بس، عشان نناديك باسمك.</p>
