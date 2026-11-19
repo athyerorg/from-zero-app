@@ -198,7 +198,7 @@ function Login({ session, profile, refresh }) {
         {step === 'code' && <form className="form" onSubmit={checkCode}>
           <h2>اكتب الرمز</h2>
           <p style={{ color: 'var(--mute)', margin: 0 }}>أرسلنا رمزًا إلى <span className="num" style={{ fontWeight: 500 }}>{email}</span>. ما وصل خلال دقيقة؟ شوف المزعج.</p>
-          <input required autoFocus inputMode="numeric" pattern="[0-9]*" maxLength={6} dir="ltr" className="num" style={{ fontSize: 28, letterSpacing: 8, textAlign: 'center' }} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} placeholder="••••••" />
+          <input required autoFocus inputMode="numeric" pattern="[0-9]*" maxLength={8} dir="ltr" className="num" style={{ fontSize: 28, letterSpacing: 8, textAlign: 'center' }} value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} placeholder="••••••" />
           {err && <div className="err">{err}</div>}
           <button className="btn p w" disabled={busy || code.length < 6}>{busy ? 'جارٍ التحقق…' : 'دخول'}</button>
           <button type="button" className="btn w" onClick={() => { setStep('email'); setCode('') }}>غيّر الإيميل</button>
